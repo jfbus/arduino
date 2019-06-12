@@ -3,7 +3,7 @@
 
 #include "Seeed_MCP9808.h"
 
-#include "arduino_secrets.h" 
+#include "arduino_secrets.h"
 
 char ssid[] = SECRET_SSID;        // your network SSID (name)
 char pass[] = SECRET_PASS;    // your network password (use for WPA, or use as key for WEP)
@@ -14,7 +14,8 @@ WiFiClient client;
 // temperature
 MCP9808  sensor;
 // sound
-const int pinAdc = A0;
+const int pinSound = A0;
+const int pinLight = A1;
 
 
 void setup() {
@@ -61,10 +62,12 @@ void loop() {
   long sound = 0;
   for(int i=0; i<32; i++)
   {
-      sound += analogRead(pinAdc);
+      sound += analogRead(pinSound);
       delay(loopDelay/32);
   }
   sound >>= 5;
+  // get Light
+  int lum = analogRead(pinLight)/10;
   // get temperature
   float temp=0;
   sensor.get_temp(&temp);
@@ -89,14 +92,16 @@ void loop() {
   message.concat(String(temp, 2));
   message.concat("\nnoise,room=arduino value=");
   message.concat(String(sound));
+  message.concat("\nlum,room=arduino value=");
+  message.concat(String(lum));
   message.concat("\n");
-  
+
   Serial.println("connecting to server...");
   // if you get a connection, report back via serial:
   if (client.connect("35.198.66.194", 2015)) {
     Serial.println("sending request");
     Serial.println(message);
-    
+
     // Make a HTTP request:
     client.println("POST /influxdb/write?db=demo HTTP/1.0");
     client.println("Host: 35.198.66.194:2015");
@@ -197,12 +202,6 @@ int strcmp(char *a, char *b)
 //configure the Bluetooth through AT commands
 int setupBlueToothConnection()
 {
-    #if MASTER
-    Serial.println("this is MASTER\r\n");
-    #else
-    Serial.println("this is SLAVE\r\n");
-    #endif
-
     Serial.print("Setting up Bluetooth link\r\n");
     delay(3500);//wait for module restart
 
@@ -222,31 +221,19 @@ int setupBlueToothConnection()
         if(sendBlueToothCommand("AT", "OK") == 0)
             break;
     }
-    
+
     //we have to set the baud rate to 9600, since the soft serial is not stable at 115200
-    sendBlueToothCommand("AT+RENEW", "OK+RENEW");//restore factory configurations
-    sendBlueToothCommand("AT+BAUD2", "OK+Set:2");//reset the module's baud rate
-    sendBlueToothCommand("AT+AUTH1", "OK+Set:1");//enable authentication
-    sendBlueToothCommand("AT+RESET", "OK+RESET");//restart module to take effect
-    Serial1.begin(9600);//reset the Arduino's baud rate
-    delay(3500);//wait for module restart
-    //configure parameters of the module
-    sendBlueToothCommand("AT+VERS?", "OK+Get:HMSoftV319");//get firmware version
-    sendBlueToothCommand("AT+ADDE?", "?");//get EDR MAC
-    sendBlueToothCommand("AT+ADDB?", "?");//get BLE MAC
-    sendBlueToothCommand("AT+NAMEHM-13-EDR", "OK+Set:HM-13-EDR");//set EDR name
-    sendBlueToothCommand("AT+NAMBHM-13-BLE", "OK+Set:HM-13-BLE");//set BLE name
-    sendBlueToothCommand("AT+PINE123451", "OK+Set:123451");//set EDR password
-    sendBlueToothCommand("AT+PINB123451", "OK+Set:123451");//set BLE password
-    sendBlueToothCommand("AT+SCAN0", "OK+Set:0");//set module visible
-    sendBlueToothCommand("AT+NOTI1", "OK+Set:1");//enable connect notifications
-    sendBlueToothCommand("AT+PIO01", "OK+Set:1");//enable key function
-    sendBlueToothCommand("AT+IMME1", "OK+Set:1");
-    sendBlueToothCommand("AT+ROLE1", "OK+Set:1");//set to master mode
-    sendBlueToothCommand("AT+RESET", "OK+RESET");//restart module to take effect
+    sendBlueToothCommand("AT+DEFAULT", "OK+DEFAULT");//restore factory configurations
+    sendBlueToothCommand("AT+NAMESeeedMaster", "OK+Set:SeeedMaster");//reset the module's baud rate
+    sendBlueToothCommand("AT+ROLES", "OK+Set:S");//set to master mode
+    sendBlueToothCommand("AT+FILT2", "OK+Set:2");//detect if the module exists
+    sendBlueToothCommand("AT+NOTI1", "OK+Set:1");//detect if the module exists
+    sendBlueToothCommand("AT+AUTH1", "OK+Set:1");//get firmware version
+    sendBlueToothCommand("AT+CLEAR", "OK+CLEAR");//restart module to take effect
     delay(3500);//wait for module restart
     sendBlueToothCommand("AT", "OK");//detect if the module exists
-    sendBlueToothCommand("AT+DISC?", "?");
+    sendBlueToothCommand("AT+ADDR", "?");//detect if the module exists
+    sendBlueToothCommand("AT+TEMP?", "?");//detect if the module exists
     Serial.print("Setup complete\r\n\r\n");
     return 0;
 }
@@ -257,9 +244,10 @@ int sendBlueToothCommand(String command, String expected)
     Serial.print("send: ");
     Serial.println(command);
     Serial1.print(command);
-    
+
     Serial.print("recv: ");
-    Serial.println(expectBTResponse(expected, 10000));
+    Serial.println(expectBTResponse(expected, 20000));
+    delay(500);
     return 0;
 }
 
@@ -273,7 +261,7 @@ String expectBTResponse(String expected, unsigned long timeout)
         char c = Serial1.read();
         response += c;
         if (c == '\n') {
-          return response; 
+          return response;
         }
     }
     delay(10);
