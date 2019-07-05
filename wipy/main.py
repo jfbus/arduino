@@ -51,9 +51,16 @@ while True:
         devices.add(adv.mac)
         print("MAC: "+str(ubinascii.hexlify(adv.mac)))
         print("RSSI: "+str(adv.rssi))
+        print("NameShort: "+str(bt.resolve_adv_data(adv.data, Bluetooth.ADV_NAME_SHORT)))
+        print("NameComplete: "+str(bt.resolve_adv_data(adv.data, Bluetooth.ADV_NAME_CMPL)))
+        mfg_data = bt.resolve_adv_data(adv.data, Bluetooth.ADV_MANUFACTURER_DATA)
+        if mfg_data:
+            # try to get the manufacturer data (Apple's iBeacon data is sent here)
+            print("ManufacturerData: "+str(ubinascii.hexlify(mfg_data)))
         print("connecting to "+str(ubinascii.hexlify(adv.mac)))
         try:
             conn = bt.connect(adv.mac)
+            t = "other"
             if conn:
                 try:
                     print("connected to "+str(ubinascii.hexlify(adv.mac)))
@@ -65,18 +72,15 @@ while True:
                             print('Srv: %x' % service.uuid())
                         if service.uuid() == 6154: # 0x180A - Device Information
                             for c in service.characteristics():
+                                if (c.properties() & Bluetooth.PROP_READ):
+                                    print('char {} value = {}'.format(c.uuid(), c.read()))
                                 if c.uuid() == 10788: # 0x2A24 - Model Number String
                                     model = c.read().decode("utf-8")
                                     print("model: "+model)
-                                    t = "other"
                                     if model.startswith("Mac"):
                                         t = "Mac"
                                     elif model.startswith("iPhone"):
                                         t = "iPhone"
-                                    if t not in devicetypes:
-                                        devicetypes[t] = 1
-                                    else:
-                                        devicetypes[t] += 1
                 except OSError as e:
                     print(e)
                 except:
@@ -85,6 +89,10 @@ while True:
                 finally:
                     print("disconnecting from "+str(ubinascii.hexlify(adv.mac)))
                     conn.disconnect()
+            if t not in devicetypes:
+                devicetypes[t] = 1
+            else:
+                devicetypes[t] += 1
         except OSError as e:
             print(e)
         except:
@@ -100,26 +108,30 @@ while True:
     print("Light (channel Blue lux, channel Red lux): " + str(lum))
 
     print("init WLAN...");
-    wlan = WLAN(mode=WLAN.STA)
-    print("connecting to wifi...");
-    wlan.ifconfig(config='dhcp')
-    wlan.connect(WIFISSID, auth=(WLAN.WPA2, WIFIPASS), timeout=5000)
-    while not wlan.isconnected():
-         machine.idle()
-    print("Connected as "+str(wlan.ifconfig()))
+    try:
+        wlan = WLAN(mode=WLAN.STA)
+        print("connecting to wifi...");
+        wlan.ifconfig(config='dhcp')
+        wlan.connect(WIFISSID, auth=(WLAN.WPA2, WIFIPASS), timeout=5000)
+        while not wlan.isconnected():
+             machine.idle()
+        print("Connected as "+str(wlan.ifconfig()))
 
-    req = "POST /influxdb/write?db=demo HTTP/1.0\nHost: 35.198.66.194:2015\nConnection: close\n"
-    req += "Content-Type: application/x-www-form-urlencoded\nContent-Length: %d\n\n"%len(msg)
-    req += msg
-    print(req)
+        req = "POST /influxdb/write?db=demo HTTP/1.0\nHost: 35.198.66.194:2015\nConnection: close\n"
+        req += "Content-Type: application/x-www-form-urlencoded\nContent-Length: %d\n\n"%len(msg)
+        req += msg
+        print(req)
 
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    ai = socket.getaddrinfo("35.198.66.194", 2015)
-    addr = ai[0][4]
-    s.connect(addr)
-    s.sendall(req)
-    status = s.recv(4096)
-    s.close()
-    print(str(status))
-    wlan.disconnect()
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        ai = socket.getaddrinfo("35.198.66.194", 2015)
+        addr = ai[0][4]
+        s.connect(addr)
+        s.sendall(req)
+        status = s.recv(4096)
+        s.close()
+        print(str(status))
+        wlan.disconnect()
+    except:
+        e = sys.exc_info()[0]
+        print(e)
     time.sleep_ms(60000)
