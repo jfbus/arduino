@@ -32,7 +32,8 @@ func main() {
 
 	r := NewReporter(cfg.Reporter)
 	sc := NewBTScanner(cfg.BT, r)
-	e, err := NewEnviro(r)
+    // Enviro
+	//e, err := NewEnviro(r)
 	if err != nil {
 		log.Fatalf("can't init enviro : %s", err)
 	}
@@ -42,7 +43,8 @@ func main() {
 	g.Go(func() error { return sc.Run(ctx) })
 	g.Go(func() error { return r.Run(ctx) })
 	g.Go(func() error { return ble.Scan(ctx, true, sc.Discover, nil) })
-	g.Go(func() error { return e.Run(ctx) })
+	// Enviro
+    //g.Go(func() error { return e.Run(ctx) })
 	chkErr(g.Wait())
 }
 

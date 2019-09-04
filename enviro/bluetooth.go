@@ -149,7 +149,7 @@ func (s *BTScanner) loopReport(ctx context.Context) error {
 
 func (s *BTScanner) loopInfo(ctx context.Context) error {
 	discoveries := map[string]*BTPeripheral{}
-	t := time.NewTicker(10 * time.Second)
+	t := time.NewTicker(20 * time.Second)
 	defer t.Stop()
 	for {
 		select {
@@ -171,7 +171,7 @@ func (s *BTScanner) loopInfo(ctx context.Context) error {
 }
 
 func (s *BTScanner) discoverInfo(ctx context.Context, p *BTPeripheral) error {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 20 * time.Second)
 	defer cancel()
 	fmt.Println("discovering", p.a.Addr())
 	p.attempts++
@@ -222,6 +222,17 @@ func (s *BTScanner) discoverInfo(ctx context.Context, p *BTPeripheral) error {
 			p.typ = OtherType
 		}
 	}
+    // Device Information
+    char = prof.FindCharacteristic(&ble.Characteristic{UUID: ble.UUID16(0x180a)})
+    if char != nil {
+        b, err := c.ReadCharacteristic(char)
+        if err != nil {
+            fmt.Println("unable to read", p.a.Addr(), ":", err)
+            return err
+        }
+        fmt.Printf("Devince Information:%x | %q\n", b, b)
+    }
+
 	for _, s := range prof.Services {
 		fmt.Println("  srv", s.UUID)
 		for _, char := range s.Characteristics {
