@@ -5,7 +5,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	"arduino/raspi/adc"
+	"adc"
 
 	"github.com/pkg/errors"
 	"periph.io/x/periph/conn/gpio"

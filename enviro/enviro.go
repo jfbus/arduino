@@ -4,6 +4,8 @@ import (
 	"context"
 	"time"
 
+	"adc"
+
 	"github.com/pkg/errors"
 	"periph.io/x/periph/conn/i2c"
 	"periph.io/x/periph/conn/i2c/i2creg"
@@ -17,6 +19,8 @@ type Enviro struct {
 
 	i2c   i2c.BusCloser
 	bm280 *bmxx80.Dev
+
+	adc   *adc.Dev
 }
 
 func NewEnviro(r *Reporter) (*Enviro, error) {
@@ -35,7 +39,11 @@ func NewEnviro(r *Reporter) (*Enviro, error) {
 		return nil, errors.Wrap(err, "init bme280")
 	}
 
-	return &Enviro{r: r, i2c: i2c, bm280: bm280}, nil
+	adc,err := adc.NewADC(i2c, nil)
+	if err != nil {
+		return nil, errors.Wrap(err, "init adc")
+	}
+	return &Enviro{r: r, i2c: i2c, bm280: bm280, adc: adc}, nil
 }
 
 func (e *Enviro) Run(ctx context.Context) error {
