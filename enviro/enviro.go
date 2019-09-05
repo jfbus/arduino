@@ -61,7 +61,14 @@ func (e *Enviro) Run(ctx context.Context) error {
 				e.r.Report(time.Now(), "temp", "", env.Temperature.Celsius())
 				e.r.Report(time.Now(), "humidity", "", float64(env.Humidity/physic.PercentRH))
 			}
+			// Read all ADC's informations
 			// Read noise from ADC
+			var channel uint8
+			for i := channel; i <= 3; i++ {
+				if infos, err := e.adc.Read(i); err == nil {
+					e.r.Report(time.Now(), "infos", "", infos)
+				}
+			}
 		}
 	}
 }
