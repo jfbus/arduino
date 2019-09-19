@@ -86,6 +86,11 @@ func (g *Grove) Run(ctx context.Context) error {
 			if lum, err := g.adc.Read(0); err == nil {
 				g.r.Report(time.Now(), "lum", "", lum)
 			}
+
+			// Read mic
+			if mic, err := g.adc.Read(2); err == nil {
+				g.r.Report(time.Now(), "mic", "", mic)
+			}
 		}
 	}
 }
