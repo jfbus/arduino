@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"net"
 	"sync/atomic"
 	"time"
 
@@ -74,25 +76,44 @@ func (g *Grove) Run(ctx context.Context) error {
 		case <-t.C:
 			// Read temperature from mcp9808
 			if temp, err := g.mcp9808.SenseTemp(); err == nil {
-				g.r.Report(time.Now(), "temp", "", temp.Celsius())
+				g.r.Report(time.Now(), "temp", "", FloatToString(temp.Celsius()))
 			}
 			// Read PIR status
 			pirStatus := 0.
 			if time.Since(time.Unix(atomic.LoadInt64(&g.pirStatus), 0)) > g.cfg.PIRMaxAge {
 				pirStatus = 1
 			}
-			g.r.Report(time.Now(), "pir", "", pirStatus)
+			g.r.Report(time.Now(), "pir", "",FloatToString(pirStatus))
 			// Read luminosity
 			if lum, err := g.adc.Read(0); err == nil {
-				g.r.Report(time.Now(), "lum", "", lum)
+				g.r.Report(time.Now(), "lum", "", FloatToString(lum))
 			}
 
 			// Read mic
 			if mic, err := g.adc.Read(2); err == nil {
-				g.r.Report(time.Now(), "mic", "", mic)
+				g.r.Report(time.Now(), "mic", "", FloatToString(mic))
+			}
+
+			//BSSID
+			wifi1 := getMacAddr()
+			g.r.Report(time.Now(), "wifi1", "bssid", wifi1)
+		}
+	}
+}
+
+func getMacAddr() string {
+	var addr string
+	interfaces, err := net.Interfaces()
+	if err == nil {
+		for _, i := range interfaces {
+			if i.Flags&net.FlagUp != 0 && bytes.Compare(i.HardwareAddr, nil) != 0 {
+				addr = i.HardwareAddr.String()
+                //fmt.Println(reflect.TypeOf(addr))
+				break
 			}
 		}
 	}
+	return addr
 }
 
 func (g *Grove) monitorPIR(ctx context.Context) error {

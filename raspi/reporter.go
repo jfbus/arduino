@@ -18,7 +18,7 @@ type ReporterConfig struct {
 type Data struct {
 	TS    time.Time
 	Name  string
-	Value float64
+	Value string
 	Tags  string
 }
 
@@ -47,7 +47,7 @@ func (r *Reporter) Run(ctx context.Context) error {
 				if tags != "" {
 					tags = "," + tags
 				}
-				msg += fmt.Sprintf("%s,%s%s value=%f\n", d.Name, r.cfg.Tags, tags, d.Value)
+				msg += fmt.Sprintf("%s,%s%s value=%s\n", d.Name, r.cfg.Tags, tags, d.Value)
 			}
 			r.data = r.data[:0]
 			r.mu.Unlock()
@@ -64,7 +64,7 @@ func (r *Reporter) Run(ctx context.Context) error {
 	}
 }
 
-func (r *Reporter) Report(ts time.Time, name, tags string, value float64) {
+func (r *Reporter) Report(ts time.Time, name, tags string, value string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	r.data = append(r.data, Data{TS: ts, Name: name, Tags: tags, Value: value})
