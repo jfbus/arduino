@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"net"
+	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -99,6 +100,10 @@ func (g *Grove) Run(ctx context.Context) error {
 			g.r.Report(time.Now(), "wifi1", "bssid", wifi1)
 		}
 	}
+}
+
+func FloatToString(input float64) string {
+	return strconv.FormatFloat(input, 'f', -1, 64)
 }
 
 func getMacAddr() string {

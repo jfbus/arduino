@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"log"
+	"strconv"
 	"time"
 
 	"adc"
 
 	"github.com/pkg/errors"
+	"github.com/sachingorade/go-oled-i2c"
 	"periph.io/x/periph/conn/i2c"
 	"periph.io/x/periph/conn/i2c/i2creg"
 	"periph.io/x/periph/conn/physic"
@@ -47,6 +50,7 @@ func NewEnviro(r *Reporter) (*Enviro, error) {
 }
 
 func (e *Enviro) Run(ctx context.Context) error {
+	oled, errOled := goled.BeginOled()
 	t := time.NewTicker(time.Minute)
 	defer t.Stop()
 	defer e.Close(ctx)
@@ -55,10 +59,18 @@ func (e *Enviro) Run(ctx context.Context) error {
 		case <-ctx.Done():
 			return ctx.Err()
 		case <-t.C:
-			// Read temperature & humidity from BM280
+			// Read temperature & humidity from BM280 & display Oled
 			env := physic.Env{}
 			if err := e.bm280.Sense(&env); err == nil {
 				e.r.Report(time.Now(), "temp", "", env.Temperature.Celsius())
+				if errOled != nil {
+					log.Fatal("can't init Oled : %s", errOled)
+				} else {
+					defer oled.Close()
+					oled.Clear()
+					oled.Write("Ambient temperature: ")
+					oled.Write(FloatToString(env.Temperature.Celsius()))
+				}
 				e.r.Report(time.Now(), "humidity", "", float64(env.Humidity/physic.PercentRH))
 			}
 			// Read all ADC's informations
@@ -71,6 +83,25 @@ func (e *Enviro) Run(ctx context.Context) error {
 			}
 		}
 	}
+}
+
+/*func (e *Enviro) DisplayOled() {
+	oled, err := goled.BeginOled()
+	if err != nil {
+		log.Fatal("can't init Oled : %s", err)
+		return
+	}
+	defer oled.Close()
+	oled.Clear()
+
+	env:= physic.Env{}
+	if err := e.bm280.Sense(&env); err == nil {
+		oled.Write(FloatToString(env.Temperature.Celsius()))
+	}
+}*/
+
+func FloatToString(input float64) string {
+	return strconv.FormatFloat(input, 'f', -1, 64)
 }
 
 func (e *Enviro) Close(ctx context.Context) error {

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"strconv"
 	"sync"
 	"time"
 
@@ -77,10 +76,6 @@ type BTScanner struct {
 	devices     map[string]*BTPeripheral
 	r           *Reporter
 	discoveries chan *BTPeripheral
-}
-
-func FloatToString(input float64) string {
-	return strconv.FormatFloat(input, 'f', -1, 64)
 }
 
 func NewBTScanner(cfg BTScannerConfig, r *Reporter) *BTScanner {
