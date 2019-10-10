@@ -1,30 +1,33 @@
 package main
 
 import (
-	"bytes"
-	"context"
-	"fmt"
-	"io/ioutil"
-	"net/http"
-	"sync"
-	"time"
+    "context"
+    "crypto/tls"
+    "crypto/x509"
+    "flag"
+    "fmt"
+    "io/ioutil"
+    "log"
+    "sync"
+    "time"
+
+    jwt "github.com/dgrijalva/jwt-go"
+    MQTT "github.com/eclipse/paho.mqtt.golang"
 )
 
 type ReporterConfig struct {
-	URL  string `default:"http://35.198.66.194:2015/influxdb/write?db=demo"`
-	Tags string `default:"room=raspi-grove"`
+    Tags string `default:"room=raspi-grove"`
 }
 
 type Data struct {
-	TS    time.Time
 	Name  string
-	Value string
+	Value float64
 	Tags  string
 }
 
 type Reporter struct {
 	cfg  ReporterConfig
-	mu   sync.Mutex
+    mu sync.Mutex
 	data []Data
 }
 
@@ -32,8 +35,154 @@ func NewReporter(cfg ReporterConfig) *Reporter {
 	return &Reporter{cfg: cfg}
 }
 
+var (
+    deviceID = flag.String("device", "", "Cloud IoT Core Device ID")
+    bridge = struct {
+        host *string
+        port *string
+    }{
+        flag.String("mqtt_host", "mqtt.googleapis.com", "MQTT Bridge Host"),
+        flag.String("mqtt_port", "8883", "MQTT Bridge Port"),
+    }
+    projectID = flag.String("project", "", "GCP Project ID")
+    registryID = flag.String("registry", "", "Cloud IoT Registry ID (short from)")
+    region = flag.String("region", "", "GCP Region")
+    certsCA = flag.String("ca_certs", "", "Dowload https://pki.google.com/roots.pem")
+    privateKey = flag.String("private_key", "", "Path to private key file")
+    measurement = flag.String("influx_db", "Raspberry_Pi_Zero_W", "InfluxDB Measurement to store into")
+    format = flag.String("format", "line", "Data format: influxdb line protocol")
+)
+
 func (r *Reporter) Run(ctx context.Context) error {
-	t := time.NewTicker(time.Minute)
+    log.Println("[main] Entered")
+
+    log.Println("[main] Flags")
+    flag.Parse()
+
+    log.Println("[main] Loading Google's roots")
+    certpool := x509.NewCertPool()
+    pemCerts, err := ioutil.ReadFile(*certsCA)
+    if err == nil {
+        certpool.AppendCertsFromPEM(pemCerts)
+    }
+    log.Println("[main] Creating TLS Config")
+
+    config := &tls.Config{
+        RootCAs:            certpool,
+        ClientAuth:         tls.NoClientCert,
+        ClientCAs:          nil,
+        InsecureSkipVerify: true,
+        Certificates:       []tls.Certificate{},
+        MinVersion:         tls.VersionTLS12,
+    }
+
+    clientID := fmt.Sprintf("projects/%v/locations/%v/registries/%v/devices/%v",
+        *projectID,
+        *region,
+        *registryID,
+        *deviceID,
+    )
+
+    log.Println("[main] Creating MQTT Client Options")
+    opts := MQTT.NewClientOptions()
+
+    broker := fmt.Sprintf("ssl://%v:%v", *bridge.host, *bridge.port)
+    log.Printf("[main] Broker '%v'", broker)
+
+    opts.AddBroker(broker)
+    opts.SetClientID(clientID).SetTLSConfig(config)
+
+    opts.SetUsername("unused")
+
+    token := jwt.New(jwt.SigningMethodRS256)
+    token.Claims = jwt.StandardClaims{
+        Audience:  *projectID,
+        IssuedAt:  time.Now().Unix(),
+        ExpiresAt: time.Now().Add(24 * time.Hour).Unix(),
+    }
+
+    log.Println("[main] Load Private Key")
+    keyBytes, err := ioutil.ReadFile(*privateKey)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Println("[main] Parse Private Key")
+    key, err := jwt.ParseRSAPrivateKeyFromPEM(keyBytes)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Println("[main] Sign String")
+    tokenString, err := token.SignedString(key)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    opts.SetPassword(tokenString)
+
+
+    // Incoming
+    opts.SetDefaultPublishHandler(func(client MQTT.Client, msg MQTT.Message) {
+        fmt.Printf("[handler] Topic: %v\n", msg.Topic())
+        fmt.Printf("[handler] Payload: %v\n", msg.Payload())
+    })
+    log.Println("[main] MQTT Client Connecting")
+    client := MQTT.NewClient(opts)
+    if token := client.Connect(); token.Wait() && token.Error() != nil {
+        log.Fatal(token.Error())
+    }
+
+    topic := struct {
+        config    string
+        telemetry string
+    }{
+        config:    fmt.Sprintf("/devices/%v/config", *deviceID),
+        telemetry: fmt.Sprintf("/devices/%v/events", *deviceID),
+    }
+
+    log.Println("[main] Creating Subscription")
+    client.Subscribe(topic.config, 0, nil)
+
+    // MQTT
+    t := time.NewTicker(time.Second)
+    defer t.Stop()
+    for {
+        select {
+        case <-ctx.Done():
+            return ctx.Err()
+        case <-t.C:
+            r.mu.Lock()
+            mString := ""
+            for _, d := range r.data {
+                /*tags := d.Tags
+                if tags != "" {
+                    tags = "," + tags
+                }*/
+                // Data
+                if mString == ""{
+                    mString = fmt.Sprintf("%s,%s %s=%0.2f %d", *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
+                } else {
+                    mString = fmt.Sprintf("%s\n%s,%s %s=%0.2f %d", mString, *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
+                }
+                time.Sleep(time.Second)
+            }
+            r.data = r.data[:0]
+            r.mu.Unlock()
+            log.Printf("[main] Publishing\n")
+            token := client.Publish(
+                topic.telemetry,
+                0,
+                false,
+                mString)
+            token.WaitTimeout(5 * time.Second)
+            fmt.Printf("%s\n", mString)
+        }
+    }
+}
+
+    // HTTP
+	/*t := time.NewTicker(time.Minute)
 	defer t.Stop()
 	for {
 		select {
@@ -61,11 +210,9 @@ func (r *Reporter) Run(ctx context.Context) error {
 				fmt.Println("response", resp.StatusCode, "-", string(buf))
 			}
 		}
-	}
-}
-
-func (r *Reporter) Report(ts time.Time, name, tags string, value string) {
+	}*/
+func (r *Reporter) Report(name, tags string, value float64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
-	r.data = append(r.data, Data{TS: ts, Name: name, Tags: tags, Value: value})
+    r.data = append(r.data, Data{Name: name, Tags: tags, Value: value})
 }

@@ -136,12 +136,12 @@ func (s *BTScanner) loopReport(ctx context.Context) error {
 				typs[p.typ]++
 			}
 			s.mu.Unlock()
-			s.r.Report(time.Now(), "devices", "", FloatToString(cnt))
+			s.r.Report("devices", "", cnt)
 			for typ, cnt := range typs {
 				if typ == UnknownType {
 					continue
 				}
-				s.r.Report(time.Now(), "devicetype", "type="+typ.String(), FloatToString(cnt))
+				s.r.Report("devicetype", "type="+typ.String(), cnt)
 			}
 		}
 	}

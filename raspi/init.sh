@@ -1,0 +1,1 @@
+./raspi -ca_certs /home/pi/GoogleIoTClient/PemFiles/roots.pem -device Raspi -private_key /home/pi/GoogleIoTClient/PemFiles/private_key.pem -project cocoon-iot -region europe-west1 -registry cocoon-iot-registry -format line

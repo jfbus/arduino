@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"context"
 	"net"
-	"strconv"
 	"sync/atomic"
 	"time"
 
@@ -67,7 +66,7 @@ func NewGrove(cfg GroveConfig, r *Reporter) (*Grove, error) {
 }
 
 func (g *Grove) Run(ctx context.Context) error {
-	t := time.NewTicker(time.Minute)
+	t := time.NewTicker(time.Second)
 	defer t.Stop()
 	defer g.Close(ctx)
 	for {
@@ -77,33 +76,29 @@ func (g *Grove) Run(ctx context.Context) error {
 		case <-t.C:
 			// Read temperature from mcp9808
 			if temp, err := g.mcp9808.SenseTemp(); err == nil {
-				g.r.Report(time.Now(), "temp", "", FloatToString(temp.Celsius()))
+				g.r.Report("temperature", "",temp.Celsius())
 			}
 			// Read PIR status
 			pirStatus := 0.
 			if time.Since(time.Unix(atomic.LoadInt64(&g.pirStatus), 0)) > g.cfg.PIRMaxAge {
 				pirStatus = 1
 			}
-			g.r.Report(time.Now(), "pir", "",FloatToString(pirStatus))
+			g.r.Report("pir", "", pirStatus)
 			// Read luminosity
 			if lum, err := g.adc.Read(0); err == nil {
-				g.r.Report(time.Now(), "lum", "", FloatToString(lum))
+				g.r.Report("luminosity", "", lum)
 			}
 
-			// Read mic
+			// Read loudness
 			if mic, err := g.adc.Read(2); err == nil {
-				g.r.Report(time.Now(), "mic", "", FloatToString(mic))
+				g.r.Report("loudness", "", mic)
 			}
 
-			//BSSID
-			wifi1 := getMacAddr()
-			g.r.Report(time.Now(), "wifi1", "bssid", wifi1)
+			// Read bssid
+            active := isNull(getMacAddr())
+			g.r.Report("wifi1", "", active)
 		}
 	}
-}
-
-func FloatToString(input float64) string {
-	return strconv.FormatFloat(input, 'f', -1, 64)
 }
 
 func getMacAddr() string {
@@ -113,12 +108,18 @@ func getMacAddr() string {
 		for _, i := range interfaces {
 			if i.Flags&net.FlagUp != 0 && bytes.Compare(i.HardwareAddr, nil) != 0 {
 				addr = i.HardwareAddr.String()
-                //fmt.Println(reflect.TypeOf(addr))
 				break
 			}
 		}
 	}
 	return addr
+}
+
+func isNull(str string) float64 {
+    if len(str) > 0 {
+        return 1
+    }
+    return 0
 }
 
 func (g *Grove) monitorPIR(ctx context.Context) error {
