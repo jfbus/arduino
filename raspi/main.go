@@ -6,7 +6,7 @@ import (
 	"log"
 
 	"github.com/go-ble/ble"
-	//"github.com/go-ble/ble/examples/lib/dev"
+	"github.com/go-ble/ble/examples/lib/dev"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -25,11 +25,11 @@ func main() {
 		fmt.Println("running on a raspberry pi")
 	}
 
-	/*d, err := dev.NewDevice("default")
+	d, err := dev.NewDevice("default")
 	if err != nil {
 		log.Fatalf("can't create BLE device : %s", err)
-	}*/
-	//ble.SetDefaultDevice(d)
+	}
+	ble.SetDefaultDevice(d)
 
 	r := NewReporter(cfg.Reporter)
 	//sc := NewBTScanner(cfg.BT, r)
@@ -38,7 +38,7 @@ func main() {
 		log.Fatalf("can't init grove : %s", err)
 	}
 	// Scan for specified durantion, or until interrupted by user.
-	// ctx := ble.WithSigHandler(context.WithTimeout(context.Background(), *du))
+    //ctx := ble.WithSigHandler(context.WithTimeout(context.Background(), *du))
 	g, ctx := errgroup.WithContext(context.Background())
 	//g.Go(func() error { return sc.Run(ctx) })
 	g.Go(func() error { return r.Run(ctx) })

@@ -159,24 +159,37 @@ func (r *Reporter) Run(ctx context.Context) error {
                 if tags != "" {
                     tags = "," + tags
                 }*/
+                // Tag
+                addr := getLocalIp()
+                switch addr { // Add raspberry's IP address here
+                case "192.168.1.13":
+                    r.cfg.Tags = "room=Bureau"
+                default:
+                    r.cfg.Tags = "room=raspi-grove"
+                }
                 // Data
                 if mString == ""{
                     mString = fmt.Sprintf("%s,%s %s=%0.2f %d", *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
                 } else {
                     mString = fmt.Sprintf("%s\n%s,%s %s=%0.2f %d", mString, *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
                 }
+                log.Printf("[main] %s: %.02f\n", d.Name, d.Value)
                 time.Sleep(time.Second)
             }
             r.data = r.data[:0]
             r.mu.Unlock()
-            log.Printf("[main] Publishing\n")
-            token := client.Publish(
-                topic.telemetry,
-                0,
-                false,
-                mString)
-            token.WaitTimeout(5 * time.Second)
-            fmt.Printf("%s\n", mString)
+
+            if len(mString) > 0 {
+                log.Printf("[main] Sending\n")
+                token := client.Publish(
+                    topic.telemetry,
+                    0,
+                    false,
+                    mString)
+                token.WaitTimeout(5 * time.Second)
+                // Debug
+                fmt.Printf("%s\n", mString)
+            }
         }
     }
 }

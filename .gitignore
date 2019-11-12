@@ -1,4 +1,3 @@
 wifi/arduino_secrets.h
 wipy/lib/secrets.py
-enviro
-raspi
+*.swp
