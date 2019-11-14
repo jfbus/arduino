@@ -160,13 +160,7 @@ func (r *Reporter) Run(ctx context.Context) error {
                     tags = "," + tags
                 }*/
                 // Tag
-                addr := getLocalIp()
-                switch addr { // Add raspberry's IP address here
-                case "192.168.1.13":
-                    r.cfg.Tags = "room=Bureau"
-                default:
-                    r.cfg.Tags = "room=raspi-grove"
-                }
+                r.cfg.Tags = "room=Bureau"
                 // Data
                 if mString == ""{
                     mString = fmt.Sprintf("%s,%s %s=%0.2f %d", *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
