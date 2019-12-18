@@ -1,31 +1,42 @@
 package main 
 
 import (
-	"fmt"
 	"context"
 	"time"
+	//"reflect"
 
-	"golang.org/x/exp/io/i2c"
-	"github.com/quhar/bme280"
+	"github.com/pkg/errors"
+	"periph.io/x/periph/conn/i2c"
+	"periph.io/x/periph/conn/i2c/i2creg"
+	"periph.io/x/periph/conn/physic"
+	"periph.io/x/periph/devices/bmxx80"
+	"periph.io/x/periph/host"
 )
 
 type Omega struct {
 	r 		*Reporter
-	i2c		*i2c.Device
-	bme280  *bme280.BME280
+	i2c		i2c.BusCloser
+	bme280  *bmxx80.Dev
 }
 
 func NewOmega(r *Reporter) (*Omega, error) {
 	// Init sensor
-	i2c, err := i2c.Open(&i2c.Devfs{Dev: "/dev/i2c-0"}, bme280.I2CAddr)
-	if err != nil {
-		panic(err)
+	if _, err := host.Init(); err != nil {
+		return nil, errors.Wrap(err, "open host")
 	}
 
-	bme280 := bme280.New(i2c)
-	err = bme280.Init()
+	// Use i2creg I²C bus registry to find the first available I²C bus.
+	i2c, err := i2creg.Open("")
+	if err != nil {
+		return nil, errors.Wrap(err, "open i2c bus")
+	}
+
+	bme280, err := bmxx80.NewI2C(i2c, 0x77, &bmxx80.DefaultOpts)
+	if err != nil {
+		return nil, errors.Wrap(err, "init mcp9808")
+	}
 	
-	return &Omega{r: r, i2c: i2c}, nil
+	return &Omega{r: r, i2c: i2c, bme280: bme280}, nil
 }
 
 func (o *Omega) Run(ctx context.Context) error {
@@ -38,10 +49,9 @@ func (o *Omega) Run(ctx context.Context) error {
 			return ctx.Err()
 		case <-t.C:
 			// Read temperature from bme280
-			if temp, hum, press, err := o.bme280.EnvData(); err == nil {
-				o.r.Report("temperature", "", temp)
-				fmt.Print(hum)
-				fmt.Print(press)
+			env := physic.Env{}
+			if err := o.bme280.Sense(&env); err == nil {
+				o.r.Report("temp", "", env.Temperature.Celsius())
 			}
 		}
 	}

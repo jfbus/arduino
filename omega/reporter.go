@@ -49,7 +49,7 @@ var (
     region = flag.String("region", "", "GCP Region")
     certsCA = flag.String("ca_certs", "", "Dowload https://pki.google.com/roots.pem")
     privateKey = flag.String("private_key", "", "Path to private key file")
-    measurement = flag.String("influx_db", "Raspberry_Pi_Zero_W", "InfluxDB Measurement to store into")
+    measurement = flag.String("influx_db", "Omega", "InfluxDB Measurement to store into")
     format = flag.String("format", "line", "Data format: influxdb line protocol")
 )
 
@@ -120,7 +120,6 @@ func (r *Reporter) Run(ctx context.Context) error {
     }
 
     opts.SetPassword(tokenString)
-	fmt.Printf("\nOUouuuuh yeah\n")
 
     // Incoming
     opts.SetDefaultPublishHandler(func(client MQTT.Client, msg MQTT.Message) {
@@ -155,6 +154,7 @@ func (r *Reporter) Run(ctx context.Context) error {
 			r.mu.Lock()
 			mString := ""
 			for _, d := range r.data {
+                r.cfg.Tags = "room=Bureau"
 				if mString == ""{
                     mString = fmt.Sprintf("%s,%s %s=%0.2f %d", *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
                 } else {
