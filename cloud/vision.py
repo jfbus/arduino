@@ -77,7 +77,7 @@ def report(name, label_name, nb_pictures, flash_power):
 
     # Start taking pictures
     for i in range (int(nb_pictures)):
-        display.fill(flash_power)
+        display.fill(int(flash_power))
         camera.start_preview()
         #time.sleeip(2)
         pictureName = name + str(number) + extension
