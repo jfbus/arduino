@@ -1,0 +1,1 @@
+./omega -ca_certs PemFiles/roots.pem -device Raspi -private_key PemFiles/private_key.pem -project cocoon-iot -region europe-west1 -registry cocoon-iot-registry -format line
