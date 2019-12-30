@@ -36,11 +36,16 @@ def write_csv_file(uri, label_name):
     image = vision.types.Image()
     image.source.image_uri = uri
 
+    # Using google cloud API
     objects = client.object_localization(image=image).localized_object_annotations
     
+    # Creating csv file
     file = open(csv_file, "a")
+
+    # Set google cloud csv field 
     field = "UNASSIGNED"
-    
+
+    # Drawing square 
     for object_ in objects:
         file.write("{},{},{}".format(field, uri, label_name))
         for vertex in object_.bounding_poly.normalized_vertices:
@@ -48,9 +53,12 @@ def write_csv_file(uri, label_name):
         file.write("\n")
         
 def upload_file(name):
+
+    # Instantiates a client
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
 
+    # Upload file
     filename = "%s/%s" % (project_folder_name, name)
     blob = bucket.blob(filename)
     blob.upload_from_filename(local_folder_path + name)
@@ -60,11 +68,16 @@ def report(name, label_name, nb_pictures, flash_power):
     # Initialize i2c bus
     i2c = busio.I2C(board.SCL, board.SDA)
     display = adafruit_is31fl3731.CharlieBonnet(i2c)
+
+    # Initialize raspberry camera
     camera = PiCamera()
+    
     number = 0
     extension = '.jpg'
+
+    # Start taking pictures
     for i in range (int(nb_pictures)):
-        #display.fill(flash_power)
+        display.fill(flash_power)
         camera.start_preview()
         #time.sleeip(2)
         pictureName = name + str(number) + extension
@@ -73,6 +86,10 @@ def report(name, label_name, nb_pictures, flash_power):
         uri = "gs://" + bucket_name + "/" + project_folder_name + "/" + pictureName
         write_csv_file(uri, label_name)
         number = number + 1
+
+    display.fill(0)
+
+    # Upload csv file on google storage
     upload_file(csv_file)
     os.remove(csv_file)
 

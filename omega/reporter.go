@@ -154,7 +154,7 @@ func (r *Reporter) Run(ctx context.Context) error {
 			r.mu.Lock()
 			mString := ""
 			for _, d := range r.data {
-                r.cfg.Tags = "room=Bureau"
+                // Formating Data
 				if mString == ""{
                     mString = fmt.Sprintf("%s,%s %s=%0.2f %d", *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
                 } else {
@@ -166,6 +166,7 @@ func (r *Reporter) Run(ctx context.Context) error {
 			r.data = r.data[:0]
             r.mu.Unlock()
 
+            // Sending data
             if len(mString) > 0 {
                 log.Printf("[main] Sending\n")
                 token := client.Publish(
@@ -174,6 +175,7 @@ func (r *Reporter) Run(ctx context.Context) error {
                     false,
                     mString)
                 token.WaitTimeout(5 * time.Second)
+                
                 // Debug
                 fmt.Printf("%s\n", mString)
             }

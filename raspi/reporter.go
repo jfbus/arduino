@@ -155,13 +155,7 @@ func (r *Reporter) Run(ctx context.Context) error {
             r.mu.Lock()
             mString := ""
             for _, d := range r.data {
-                /*tags := d.Tags
-                if tags != "" {
-                    tags = "," + tags
-                }*/
-                // Tag
-                r.cfg.Tags = "room=Bureau"
-                // Data
+                // Formating data
                 if mString == ""{
                     mString = fmt.Sprintf("%s,%s %s=%0.2f %d", *measurement, r.cfg.Tags, d.Name, d.Value, time.Now().UnixNano())
                 } else {
@@ -173,6 +167,7 @@ func (r *Reporter) Run(ctx context.Context) error {
             r.data = r.data[:0]
             r.mu.Unlock()
 
+            // Sending data
             if len(mString) > 0 {
                 log.Printf("[main] Sending\n")
                 token := client.Publish(
@@ -181,6 +176,7 @@ func (r *Reporter) Run(ctx context.Context) error {
                     false,
                     mString)
                 token.WaitTimeout(5 * time.Second)
+
                 // Debug
                 fmt.Printf("%s\n", mString)
             }
@@ -188,36 +184,6 @@ func (r *Reporter) Run(ctx context.Context) error {
     }
 }
 
-    // HTTP
-	/*t := time.NewTicker(time.Minute)
-	defer t.Stop()
-	for {
-		select {
-		case <-ctx.Done():
-			return ctx.Err()
-		case <-t.C:
-			r.mu.Lock()
-			msg := fmt.Sprintf("alive,%s value=1\n", r.cfg.Tags)
-			for _, d := range r.data {
-				tags := d.Tags
-				if tags != "" {
-					tags = "," + tags
-				}
-				msg += fmt.Sprintf("%s,%s%s value=%s\n", d.Name, r.cfg.Tags, tags, d.Value)
-			}
-			r.data = r.data[:0]
-			r.mu.Unlock()
-			fmt.Println("sending", msg)
-			resp, err := http.Post(r.cfg.URL, "application/x-www-form-urlencoded", bytes.NewBufferString(msg))
-			if err != nil {
-				fmt.Println("err", err)
-			} else {
-				defer resp.Body.Close()
-				buf, _ := ioutil.ReadAll(resp.Body)
-				fmt.Println("response", resp.StatusCode, "-", string(buf))
-			}
-		}
-	}*/
 func (r *Reporter) Report(name, tags string, value float64) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
