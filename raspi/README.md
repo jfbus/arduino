@@ -7,6 +7,10 @@ Raspi is a Go library for sending data in mqtt with Google Pubsub using Raspberr
 ```bash
 ./build.sh
 ```
+or
+```bash
+go build -o raspi *.go
+```
 
 ## Usage
 
